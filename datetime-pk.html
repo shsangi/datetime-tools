@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>edge to edge · date + time</title>
+    <title>edge to edge · date + time (same line)</title>
     <style>
         /* ABSOLUTE ZERO MARGINS — PURE BLACK, NO BORDERS */
         * {
@@ -35,35 +35,33 @@
             margin: 0;
         }
 
-        /* container that centers content but keeps full stretch */
+        /* container with ROW direction - date and time side by side */
         .datetime-container {
             display: flex;
-            flex-direction: column;      /* stack date above time */
-            align-items: center;         /* horizontal center */
-            justify-content: center;     /* vertical center */
+            flex-direction: row;         /* side by side, not column */
+            align-items: center;         /* vertical center */
+            justify-content: center;     /* horizontal center */
             background: black;
             width: 100%;
             height: 100%;
             overflow: hidden;
             padding: 0;
             margin: 0;
-            gap: 0;                      /* no gap, adjusted by JS sizing */
+            gap: 0;                      /* no gap, text will touch */
+            white-space: nowrap;
         }
 
-        /* common style for both lines */
-        .datetime-line {
+        /* common style for both spans */
+        .datetime-part {
             color: white;
             background: black;
             font-weight: 700;
             white-space: nowrap;
             line-height: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: inline-block;       /* stay in line */
             text-rendering: optimizeLegibility;
             margin: 0;
             padding: 0;
-            flex-shrink: 1;
         }
 
         /* date specific */
@@ -74,9 +72,9 @@
 
         /* time specific */
         .full-time {
-            font-size: 80vh;            /* slightly smaller base, adjusted by JS */
+            font-size: 100vh;            /* same base size as date */
             letter-spacing: -0.02em;
-            opacity: 0.95;               /* subtle hierarchy */
+            margin-left: 0.1em;           /* tiny space between date and time */
         }
 
         /* am/pm inline with time */
@@ -84,32 +82,29 @@
             font-size: 0.6em;            /* relative to time font */
             font-weight: 400;
             opacity: 0.9;
-            margin-left: 0.2em;
+            margin-left: 0.15em;
         }
 
         /* media query adjustments */
         @media (min-aspect-ratio: 4/1) {
-            .full-date { font-size: 120vh; }
-            .full-time { font-size: 96vh; }
+            .full-date, .full-time { font-size: 120vh; }
         }
 
         @media (max-aspect-ratio: 1/4) {
-            .full-date { font-size: 70vw; }
-            .full-time { font-size: 56vw; }
+            .full-date, .full-time { font-size: 70vw; }
         }
 
         @media (max-width: 320px) or (max-height: 320px) {
-            .full-date { font-size: 70vw; }
-            .full-time { font-size: 56vw; }
+            .full-date, .full-time { font-size: 70vw; }
         }
     </style>
 </head>
 <body>
-    <!-- single layer: date above time, both edge to edge -->
+    <!-- single layer: date and time on SAME LINE -->
     <div class="datetime-wrapper">
         <div class="datetime-container">
-            <span class="datetime-line full-date" id="currentDate">Fri, 6 Mar, 2026</span>
-            <span class="datetime-line full-time" id="currentTime">12:00:00 <span class="ampm-part" id="currentAmPm">PM</span></span>
+            <span class="datetime-part full-date" id="currentDate">Fri, 6 Mar, 2026</span>
+            <span class="datetime-part full-time" id="currentTime">12:00:00 <span class="ampm-part" id="currentAmPm">PM</span></span>
         </div>
     </div>
 
@@ -160,7 +155,7 @@
                 timeSpan.innerHTML = ''; 
                 timeSpan.textContent = timeStr;
                 
-                // Create or reuse ampm span
+                // Create ampm span
                 const ampmEl = document.createElement('span');
                 ampmEl.className = 'ampm-part';
                 ampmEl.id = 'currentAmPm';
@@ -178,72 +173,55 @@
 
                 // Reset to reasonable base to measure natural widths
                 dateEl.style.fontSize = '100px';
-                timeEl.style.fontSize = '80px';   // different base to preserve proportion
+                timeEl.style.fontSize = '100px';   // same base for both
                 
                 const containerWidth = container.clientWidth;
                 const containerHeight = container.clientHeight;
 
-                // measure each line individually at base sizes
+                // measure combined width at base sizes
                 const dateWidth = dateEl.scrollWidth;
                 const timeWidth = timeEl.scrollWidth;
+                const totalWidth = dateWidth + timeWidth;
                 
-                // heights (roughly same as font size)
+                // heights (should be similar)
                 const dateHeight = dateEl.scrollHeight;
                 const timeHeight = timeEl.scrollHeight;
+                const maxHeight = Math.max(dateHeight, timeHeight);
 
-                if (dateWidth <= 0 || timeWidth <= 0) return;
+                if (totalWidth <= 0 || maxHeight <= 0) return;
 
-                // we have two lines stacked. Total height ≈ dateHeight + timeHeight (with a tiny gap)
-                // we want both lines to be as large as possible while fitting width and total height
+                // calculate scale based on width
+                const widthScale = containerWidth / totalWidth;
                 
-                // calculate max allowed scale based on width (most restrictive)
-                const widthScaleDate = containerWidth / dateWidth;
-                const widthScaleTime = containerWidth / timeWidth;
-                
-                // pick smallest width scale to ensure both lines fit horizontally
-                const widthScale = Math.min(widthScaleDate, widthScaleTime);
+                // calculate scale based on height
+                const heightScale = containerHeight / maxHeight;
 
-                // calculate height scale: total height available / total content height
-                const totalContentHeight = dateHeight + timeHeight;  // at base sizes
-                const heightScale = containerHeight / totalContentHeight;
-
-                // optimal scale is the smaller of widthScale and heightScale
+                // optimal scale is the smaller to fit both dimensions
                 let optimalScale = Math.min(widthScale, heightScale);
 
-                // apply scale to both lines, but keep relative proportion (date slightly bigger)
-                // base 100px for date, 80px for time gives 1.25 ratio
-                let dateBase = 100;
-                let timeBase = 80;
-                
-                let newDateSize = dateBase * optimalScale;
-                let newTimeSize = timeBase * optimalScale;
+                // apply scale (both at same size)
+                let newFontSize = 100 * optimalScale;
 
-                // set font sizes
-                dateEl.style.fontSize = newDateSize + 'px';
-                timeEl.style.fontSize = newTimeSize + 'px';
+                dateEl.style.fontSize = newFontSize + 'px';
+                timeEl.style.fontSize = newFontSize + 'px';
 
-                // fine-tuning: if after setting, either width exceeds container, shrink slightly
+                // fine-tuning: if total width exceeds container, shrink slightly
                 const finalDateWidth = dateEl.scrollWidth;
                 const finalTimeWidth = timeEl.scrollWidth;
+                const finalTotalWidth = finalDateWidth + finalTimeWidth;
                 
-                if (finalDateWidth > containerWidth || finalTimeWidth > containerWidth) {
-                    const maxExcess = Math.max(
-                        finalDateWidth / containerWidth,
-                        finalTimeWidth / containerWidth
-                    );
-                    const correction = containerWidth / (Math.max(finalDateWidth, finalTimeWidth) * 1.02);
+                if (finalTotalWidth > containerWidth) {
+                    const correction = containerWidth / (finalTotalWidth * 1.02);
+                    newFontSize *= correction;
                     
-                    newDateSize *= correction;
-                    newTimeSize *= correction;
-                    
-                    dateEl.style.fontSize = newDateSize + 'px';
-                    timeEl.style.fontSize = newTimeSize + 'px';
+                    dateEl.style.fontSize = newFontSize + 'px';
+                    timeEl.style.fontSize = newFontSize + 'px';
                 }
 
-                // also ensure total height fits (rare after width correction, but check)
-                const totalFinalHeight = dateEl.scrollHeight + timeEl.scrollHeight;
-                if (totalFinalHeight > containerHeight) {
-                    const heightCorrection = containerHeight / (totalFinalHeight * 1.02);
+                // also ensure height fits
+                const finalHeight = Math.max(dateEl.scrollHeight, timeEl.scrollHeight);
+                if (finalHeight > containerHeight) {
+                    const heightCorrection = containerHeight / (finalHeight * 1.02);
                     dateEl.style.fontSize = (parseFloat(dateEl.style.fontSize) * heightCorrection) + 'px';
                     timeEl.style.fontSize = (parseFloat(timeEl.style.fontSize) * heightCorrection) + 'px';
                 }
@@ -251,7 +229,6 @@
                 // adjust am/pm size relative to time
                 const ampmEl = document.querySelector('.ampm-part');
                 if (ampmEl) {
-                    // keep it proportional (0.6em is set in CSS, but we ensure it scales)
                     ampmEl.style.fontSize = '0.6em';
                 }
             }
@@ -269,13 +246,13 @@
                 stretchToEdges();
             });
 
-            // update time every second (time changes, date may change at midnight)
+            // update time every second
             setInterval(function() {
                 const oldDateText = dateSpan.textContent;
                 const newDateText = formatPakistanDate();
                 const { timeStr, ampm } = formatPakistanTime();
                 
-                // update time always
+                // update time
                 const timeEl = document.getElementById('currentTime');
                 timeEl.innerHTML = timeStr;
                 const ampmEl = document.createElement('span');
@@ -289,20 +266,12 @@
                     dateSpan.textContent = newDateText;
                 }
                 
-                // readjust size in case length changed (e.g., 1→31 or AM/PM change)
+                // readjust size
                 stretchToEdges();
             }, 1000);
 
-            // extra size adjustments periodically
+            // extra size adjustments
             setInterval(stretchToEdges, 200);
-
-            // ensure am/pm size stays relative after any repaint
-            const styleObserver = setInterval(function() {
-                const ampmEl = document.querySelector('.ampm-part');
-                if (ampmEl && ampmEl.style.fontSize !== '0.6em') {
-                    ampmEl.style.fontSize = '0.6em';
-                }
-            }, 500);
         })();
     </script>
 </body>
