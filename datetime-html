@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>edge to edge · date + time</title>
+    <style>
+        /* ABSOLUTE ZERO MARGINS — PURE BLACK, NO BORDERS */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            background: black;
+            width: 100%;
+            height: 100vh;
+            height: 100dvh;
+            display: flex;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* single wrapper stretches to every pixel */
+        .datetime-wrapper {
+            background: black;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: stretch;
+            justify-content: stretch;
+            overflow: hidden;
+            padding: 0;
+            margin: 0;
+        }
+
+        /* container that centers content but keeps full stretch */
+        .datetime-container {
+            display: flex;
+            flex-direction: column;      /* stack date above time */
+            align-items: center;         /* horizontal center */
+            justify-content: center;     /* vertical center */
+            background: black;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            padding: 0;
+            margin: 0;
+            gap: 0;                      /* no gap, adjusted by JS sizing */
+        }
+
+        /* common style for both lines */
+        .datetime-line {
+            color: white;
+            background: black;
+            font-weight: 700;
+            white-space: nowrap;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-rendering: optimizeLegibility;
+            margin: 0;
+            padding: 0;
+            flex-shrink: 1;
+        }
+
+        /* date specific */
+        .full-date {
+            font-size: 100vh;           /* base, overridden by JS */
+            letter-spacing: -0.02em;
+        }
+
+        /* time specific */
+        .full-time {
+            font-size: 80vh;            /* slightly smaller base, adjusted by JS */
+            letter-spacing: -0.02em;
+            opacity: 0.95;               /* subtle hierarchy */
+        }
+
+        /* am/pm inline with time */
+        .ampm-part {
+            font-size: 0.6em;            /* relative to time font */
+            font-weight: 400;
+            opacity: 0.9;
+            margin-left: 0.2em;
+        }
+
+        /* media query adjustments */
+        @media (min-aspect-ratio: 4/1) {
+            .full-date { font-size: 120vh; }
+            .full-time { font-size: 96vh; }
+        }
+
+        @media (max-aspect-ratio: 1/4) {
+            .full-date { font-size: 70vw; }
+            .full-time { font-size: 56vw; }
+        }
+
+        @media (max-width: 320px) or (max-height: 320px) {
+            .full-date { font-size: 70vw; }
+            .full-time { font-size: 56vw; }
+        }
+    </style>
+</head>
+<body>
+    <!-- single layer: date above time, both edge to edge -->
+    <div class="datetime-wrapper">
+        <div class="datetime-container">
+            <span class="datetime-line full-date" id="currentDate">Fri, 6 Mar, 2026</span>
+            <span class="datetime-line full-time" id="currentTime">12:00:00 <span class="ampm-part" id="currentAmPm">PM</span></span>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // ---------- PAKISTAN TIME (UTC+5) ----------
+            function getPakistanDateTime() {
+                const now = new Date();
+                const utcMillis = now.getTime() + (now.getTimezoneOffset() * 60000);
+                return new Date(utcMillis + (3600000 * 5));
+            }
+
+            // ---------- FORMAT DATE: 'Fri, 6 Mar, 2026' ----------
+            function formatPakistanDate() {
+                const pDate = getPakistanDateTime();
+                const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                const weekday = weekdays[pDate.getDay()];
+                const day = pDate.getDate();
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const month = months[pDate.getMonth()];
+                const year = pDate.getFullYear();
+                return `${weekday}, ${day} ${month}, ${year}`;
+            }
+
+            // ---------- FORMAT TIME WITH AM/PM: 'HH:MM:SS AM/PM' ----------
+            function formatPakistanTime() {
+                const pDate = getPakistanDateTime();
+                let hours = pDate.getHours();
+                const minutes = pDate.getMinutes().toString().padStart(2, '0');
+                const seconds = pDate.getSeconds().toString().padStart(2, '0');
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                hours = hours % 12 || 12;
+                const timeStr = `${hours.toString().padStart(2, '0')}:${minutes}:${seconds}`;
+                return { timeStr, ampm };
+            }
+
+            // DOM elements
+            const dateSpan = document.getElementById('currentDate');
+            const timeSpan = document.getElementById('currentTime');
+            const ampmSpan = document.getElementById('currentAmPm');
+
+            // update text content
+            function updateDateTime() {
+                dateSpan.textContent = formatPakistanDate();
+                const { timeStr, ampm } = formatPakistanTime();
+                
+                // Clear and rebuild time span with am/pm nested
+                timeSpan.innerHTML = ''; 
+                timeSpan.textContent = timeStr;
+                
+                // Create or reuse ampm span
+                const ampmEl = document.createElement('span');
+                ampmEl.className = 'ampm-part';
+                ampmEl.id = 'currentAmPm';
+                ampmEl.textContent = ' ' + ampm;  // space before AM/PM
+                timeSpan.appendChild(ampmEl);
+            }
+
+            // ---------- DYNAMIC FONT SIZING: fill viewport edge to edge ----------
+            function stretchToEdges() {
+                const container = document.querySelector('.datetime-container');
+                const dateEl = dateSpan;
+                const timeEl = timeSpan;
+
+                if (!container || !dateEl || !timeEl) return;
+
+                // Reset to reasonable base to measure natural widths
+                dateEl.style.fontSize = '100px';
+                timeEl.style.fontSize = '80px';   // different base to preserve proportion
+                
+                const containerWidth = container.clientWidth;
+                const containerHeight = container.clientHeight;
+
+                // measure each line individually at base sizes
+                const dateWidth = dateEl.scrollWidth;
+                const timeWidth = timeEl.scrollWidth;
+                
+                // heights (roughly same as font size)
+                const dateHeight = dateEl.scrollHeight;
+                const timeHeight = timeEl.scrollHeight;
+
+                if (dateWidth <= 0 || timeWidth <= 0) return;
+
+                // we have two lines stacked. Total height ≈ dateHeight + timeHeight (with a tiny gap)
+                // we want both lines to be as large as possible while fitting width and total height
+                
+                // calculate max allowed scale based on width (most restrictive)
+                const widthScaleDate = containerWidth / dateWidth;
+                const widthScaleTime = containerWidth / timeWidth;
+                
+                // pick smallest width scale to ensure both lines fit horizontally
+                const widthScale = Math.min(widthScaleDate, widthScaleTime);
+
+                // calculate height scale: total height available / total content height
+                const totalContentHeight = dateHeight + timeHeight;  // at base sizes
+                const heightScale = containerHeight / totalContentHeight;
+
+                // optimal scale is the smaller of widthScale and heightScale
+                let optimalScale = Math.min(widthScale, heightScale);
+
+                // apply scale to both lines, but keep relative proportion (date slightly bigger)
+                // base 100px for date, 80px for time gives 1.25 ratio
+                let dateBase = 100;
+                let timeBase = 80;
+                
+                let newDateSize = dateBase * optimalScale;
+                let newTimeSize = timeBase * optimalScale;
+
+                // set font sizes
+                dateEl.style.fontSize = newDateSize + 'px';
+                timeEl.style.fontSize = newTimeSize + 'px';
+
+                // fine-tuning: if after setting, either width exceeds container, shrink slightly
+                const finalDateWidth = dateEl.scrollWidth;
+                const finalTimeWidth = timeEl.scrollWidth;
+                
+                if (finalDateWidth > containerWidth || finalTimeWidth > containerWidth) {
+                    const maxExcess = Math.max(
+                        finalDateWidth / containerWidth,
+                        finalTimeWidth / containerWidth
+                    );
+                    const correction = containerWidth / (Math.max(finalDateWidth, finalTimeWidth) * 1.02);
+                    
+                    newDateSize *= correction;
+                    newTimeSize *= correction;
+                    
+                    dateEl.style.fontSize = newDateSize + 'px';
+                    timeEl.style.fontSize = newTimeSize + 'px';
+                }
+
+                // also ensure total height fits (rare after width correction, but check)
+                const totalFinalHeight = dateEl.scrollHeight + timeEl.scrollHeight;
+                if (totalFinalHeight > containerHeight) {
+                    const heightCorrection = containerHeight / (totalFinalHeight * 1.02);
+                    dateEl.style.fontSize = (parseFloat(dateEl.style.fontSize) * heightCorrection) + 'px';
+                    timeEl.style.fontSize = (parseFloat(timeEl.style.fontSize) * heightCorrection) + 'px';
+                }
+
+                // adjust am/pm size relative to time
+                const ampmEl = document.querySelector('.ampm-part');
+                if (ampmEl) {
+                    // keep it proportional (0.6em is set in CSS, but we ensure it scales)
+                    ampmEl.style.fontSize = '0.6em';
+                }
+            }
+
+            // initial update
+            updateDateTime();
+
+            // wait for layout, then stretch
+            window.addEventListener('load', function() {
+                updateDateTime();
+                stretchToEdges();
+            });
+
+            window.addEventListener('resize', function() {
+                stretchToEdges();
+            });
+
+            // update time every second (time changes, date may change at midnight)
+            setInterval(function() {
+                const oldDateText = dateSpan.textContent;
+                const newDateText = formatPakistanDate();
+                const { timeStr, ampm } = formatPakistanTime();
+                
+                // update time always
+                const timeEl = document.getElementById('currentTime');
+                timeEl.innerHTML = timeStr;
+                const ampmEl = document.createElement('span');
+                ampmEl.className = 'ampm-part';
+                ampmEl.id = 'currentAmPm';
+                ampmEl.textContent = ' ' + ampm;
+                timeEl.appendChild(ampmEl);
+                
+                // update date only if changed
+                if (oldDateText !== newDateText) {
+                    dateSpan.textContent = newDateText;
+                }
+                
+                // readjust size in case length changed (e.g., 1→31 or AM/PM change)
+                stretchToEdges();
+            }, 1000);
+
+            // extra size adjustments periodically
+            setInterval(stretchToEdges, 200);
+
+            // ensure am/pm size stays relative after any repaint
+            const styleObserver = setInterval(function() {
+                const ampmEl = document.querySelector('.ampm-part');
+                if (ampmEl && ampmEl.style.fontSize !== '0.6em') {
+                    ampmEl.style.fontSize = '0.6em';
+                }
+            }, 500);
+        })();
+    </script>
+</body>
+</html>
