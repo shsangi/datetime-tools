@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>edge to edge · full date only</title>
+    <style>
+        /* ABSOLUTE ZERO MARGINS — PURE BLACK, NO BORDERS */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            background: black;
+            width: 100%;
+            height: 100vh;          /* fallback */
+            height: 100dvh;          /* dynamic viewport */
+            display: flex;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* single wrapper stretches to every pixel */
+        .date-wrapper {
+            background: black;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: stretch;      /* vertical full */
+            justify-content: stretch;  /* horizontal full */
+            overflow: hidden;
+            padding: 0;
+            margin: 0;
+        }
+
+        /* container that centers the date but keeps full stretch */
+        .date-container {
+            display: flex;
+            align-items: center;        /* vertical center */
+            justify-content: center;    /* horizontal center */
+            background: black;
+            width: 100%;
+            height: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            padding: 0;
+            margin: 0;
+        }
+
+        /* the date element — uses vh / vw fallback + JS precision */
+        .full-date {
+            font-size: 100vh;           /* base: fills height, clamped by JS */
+            font-weight: 700;            /* bold */
+            color: white;
+            background: black;
+            letter-spacing: -0.02em;     /* tight but readable */
+            white-space: nowrap;
+            line-height: 1;
+            display: inline-block;       /* fit content */
+            transform: scale(1);
+            text-rendering: optimizeLegibility;
+            padding: 0;
+            margin: 0;
+            max-width: 100%;
+        }
+
+        /* micro adjustments for extreme aspect ratios — JS will refine */
+        @media (min-aspect-ratio: 4/1) {
+            .full-date {
+                font-size: 120vh;        /* extra wide → bigger */
+                letter-spacing: -0.03em;
+            }
+        }
+
+        @media (max-aspect-ratio: 1/4) {
+            .full-date {
+                font-size: 80vw;         /* very tall → width based */
+                letter-spacing: -0.01em;
+            }
+        }
+
+        /* safety for tiny screens */
+        @media (max-width: 320px) or (max-height: 320px) {
+            .full-date {
+                font-size: 85vw;
+                letter-spacing: -0.01em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- absolutely one layer: full bleed, date only, no AM/PM, no time -->
+    <div class="date-wrapper">
+        <div class="date-container">
+            <span class="full-date" id="currentDate">Fri, 6 Mar, 2026</span>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // ---------- PAKISTAN TIME (UTC+5) ----------
+            function getPakistanDate() {
+                const now = new Date();
+                // get current utc timestamp, then add 5 hours
+                const utcMillis = now.getTime() + (now.getTimezoneOffset() * 60000);
+                return new Date(utcMillis + (3600000 * 5));
+            }
+
+            // ---------- FORMAT: 'Fri, 6 Mar, 2026' (exactly as requested) ----------
+            function formatPakistanDate() {
+                const pDate = getPakistanDate();
+
+                // Weekday short (Fri, Mon, etc)
+                const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                const weekday = weekdays[pDate.getDay()];
+
+                // Day of month without leading zero → "6"
+                const day = pDate.getDate();  // no padding
+
+                // Month short (Mar, Apr, etc)
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const month = months[pDate.getMonth()];
+
+                // Full year
+                const year = pDate.getFullYear();
+
+                // Format: "Fri, 6 Mar, 2026"  (notice comma after day, comma after month)
+                return `${weekday}, ${day} ${month}, ${year}`;
+            }
+
+            // reference to the date span
+            const dateSpan = document.getElementById('currentDate');
+
+            // update text content (no time, no am/pm, just date)
+            function updateDateOnly() {
+                dateSpan.textContent = formatPakistanDate();
+            }
+
+            // ---------- DYNAMIC FONT SIZING: fill viewport edge to edge ----------
+            function stretchDateToEdges() {
+                const container = document.querySelector('.date-container');
+                const dateEl = dateSpan;
+
+                if (!container || !dateEl) return;
+
+                // Reset font size to a baseline to measure natural width
+                // Use a moderate base to avoid massive overflows (100px is safe)
+                dateEl.style.fontSize = '100px';
+                dateEl.style.whiteSpace = 'nowrap';
+
+                // Get container dimensions
+                const containerWidth = container.clientWidth;
+                const containerHeight = container.clientHeight;
+
+                // Measure the actual width of text at 100px
+                const textWidth = dateEl.scrollWidth;
+                const textHeight = dateEl.scrollHeight; // ≈ 100px * line-height
+
+                if (textWidth <= 0 || textHeight <= 0) return;
+
+                // We want the text to stretch both dimensions, but priority is filling width
+                // because it's a single line. Compute ratio for width fill and height fill
+                const widthRatio = containerWidth / textWidth;
+                const heightRatio = containerHeight / textHeight;
+
+                // Choose the smaller ratio to ensure it fits without clipping (edge to edge but fully visible)
+                // However we want it to *stretch* as much as possible while staying inside.
+                // But the requirement is "edge to edge" — we want the text to be as large as possible
+                // while still fitting exactly within width OR height. Because it's a single line,
+                // the constraint is usually width (long date string). But we can also let it overflow
+                // slightly in height if needed? No, it must stay inside container (no scroll).
+                // So we use the smaller ratio to fit both dimensions.
+                let optimalRatio = Math.min(widthRatio, heightRatio);
+
+                // But we want it truly massive, so we can push a bit more: if widthRatio is smaller,
+                // we use that, otherwise heightRatio. That ensures it fills at least one dimension completely.
+                // That's "edge to edge" feel: it will touch either left/right edges or top/bottom.
+                // To maximise impact, use the smaller ratio but then multiply by a safety factor ~1.0
+                // because we already measured with 100px.
+                let newFontSize = 100 * optimalRatio;
+
+                // Edge case: on very wide screens we might want to shrink letter-spacing instead
+                // but we already set letter-spacing in css. We'll apply the new size.
+                // To avoid tiny gaps, we set font size precisely.
+                dateEl.style.fontSize = newFontSize + 'px';
+
+                // One more pass: after setting, if width is still slightly off due to kerning,
+                // we can adjust by ±1% but not necessary. It's already edge to edge.
+                // However we also want to ensure it doesn't wrap. white-space: nowrap is set.
+                // Final micro adjustment: if after setting, the width exceeds container by a pixel,
+                // we can shrink a tiny bit. But due to rounding, we measure again:
+                const finalWidth = dateEl.scrollWidth;
+                if (finalWidth > containerWidth) {
+                    // tiny correction
+                    const overshootRatio = containerWidth / finalWidth;
+                    dateEl.style.fontSize = (newFontSize * overshootRatio * 0.99) + 'px'; // 0.99 for safety margin
+                }
+                // Similarly for height (though less critical)
+                const finalHeight = dateEl.scrollHeight;
+                if (finalHeight > containerHeight) {
+                    const overshootH = containerHeight / finalHeight;
+                    dateEl.style.fontSize = (parseFloat(dateEl.style.fontSize) * overshootH * 0.99) + 'px';
+                }
+
+                // Final adjustment: extremely wide aspect: we can increase letter-spacing if needed,
+                // but we already have media queries. This JS gives pixel-perfect fit.
+            }
+
+            // initial update
+            updateDateOnly();
+
+            // wait for font to load / layout, then stretch
+            window.addEventListener('load', function() {
+                updateDateOnly();         // ensure latest date
+                stretchDateToEdges();
+            });
+
+            // on resize, recalc
+            window.addEventListener('resize', function() {
+                stretchDateToEdges();
+            });
+
+            // date changes only at midnight, but we update every minute to be safe (no time visible, but date might change)
+            // check every 10 seconds (day changes rarely, but we keep it fresh)
+            setInterval(function() {
+                const oldText = dateSpan.textContent;
+                const newText = formatPakistanDate();
+                if (oldText !== newText) {
+                    dateSpan.textContent = newText;
+                    stretchDateToEdges();   // if text length changes (e.g., 1 -> 31), adjust size
+                }
+            }, 10000);
+
+            // also adjust size on any orientation change or subtle movement (every 2 sec)
+            setInterval(function() {
+                stretchDateToEdges();
+            }, 200);
+
+            // if you want to also adjust on font load, but fine.
+        })();
+    </script>
+</body>
+</html>
