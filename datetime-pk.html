@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>edge to edge · date + time (refined)</title>
+    <title>edge to edge · date + time (same line)</title>
     <style>
         /* ABSOLUTE ZERO MARGINS — PURE BLACK, NO BORDERS */
         * {
@@ -31,14 +31,14 @@
             align-items: stretch;
             justify-content: stretch;
             overflow: hidden;
-            padding: 2vw;              /* slight margin around everything */
+            padding: 0;
             margin: 0;
         }
 
         /* container with ROW direction - date and time side by side */
         .datetime-container {
             display: flex;
-            flex-direction: row;         /* side by side */
+            flex-direction: row;         /* side by side, not column */
             align-items: center;         /* vertical center */
             justify-content: center;     /* horizontal center */
             background: black;
@@ -47,45 +47,42 @@
             overflow: hidden;
             padding: 0;
             margin: 0;
-            gap: 0;                      /* no gap, controlled by margin on spans */
+            gap: 0;                      /* no gap, text will touch */
             white-space: nowrap;
         }
 
-        /* common style for both spans - SAME FONT for all */
+        /* common style for both spans */
         .datetime-part {
             color: white;
             background: black;
             font-weight: 700;
-            font-family: 'Courier New', monospace;  /* same font for everything */
             white-space: nowrap;
             line-height: 1;
-            display: inline-block;
+            display: inline-block;       /* stay in line */
             text-rendering: optimizeLegibility;
+            margin: 0;
             padding: 0;
         }
 
-        /* date specific - with space after year (margin-right) */
+        /* date specific */
         .full-date {
             font-size: 100vh;           /* base, overridden by JS */
             letter-spacing: -0.02em;
-            margin-right: 0.3em;         /* SPACE AFTER YEAR before time starts */
         }
 
         /* time specific */
         .full-time {
-            font-size: 100vh;            /* same base as date */
+            font-size: 100vh;            /* same base size as date */
             letter-spacing: -0.02em;
-            margin-left: 0;               /* no left margin, spacing handled by date's margin-right */
+            margin-left: 0.1em;           /* tiny space between date and time */
         }
 
-        /* am/pm - NO SPACE, directly attached to time */
+        /* am/pm inline with time */
         .ampm-part {
-            font-size: 1em;               /* SAME FONT SIZE as time (not smaller) */
-            font-weight: 700;              /* same bold as rest */
-            font-family: 'Courier New', monospace;
-            opacity: 1;                    /* full opacity, same as time */
-            margin-left: 0;                 /* NO SPACE before AM/PM */
-            display: inline-block;
+            font-size: 0.6em;            /* relative to time font */
+            font-weight: 400;
+            opacity: 0.9;
+            margin-left: 0.15em;
         }
 
         /* media query adjustments */
@@ -103,11 +100,11 @@
     </style>
 </head>
 <body>
-    <!-- single layer: date and time on SAME LINE with space after year -->
+    <!-- single layer: date and time on SAME LINE -->
     <div class="datetime-wrapper">
         <div class="datetime-container">
             <span class="datetime-part full-date" id="currentDate">Fri, 6 Mar, 2026</span>
-            <span class="datetime-part full-time" id="currentTime">12:00:00<span class="ampm-part" id="currentAmPm">PM</span></span>
+            <span class="datetime-part full-time" id="currentTime">12:00:00 <span class="ampm-part" id="currentAmPm">PM</span></span>
         </div>
     </div>
 
@@ -132,7 +129,7 @@
                 return `${weekday}, ${day} ${month}, ${year}`;
             }
 
-            // ---------- FORMAT TIME WITH AM/PM: 'HH:MM:SSAM/PM' (NO SPACE) ----------
+            // ---------- FORMAT TIME WITH AM/PM: 'HH:MM:SS AM/PM' ----------
             function formatPakistanTime() {
                 const pDate = getPakistanDateTime();
                 let hours = pDate.getHours();
@@ -154,15 +151,15 @@
                 dateSpan.textContent = formatPakistanDate();
                 const { timeStr, ampm } = formatPakistanTime();
                 
-                // Clear and rebuild time span with am/pm directly attached (NO SPACE)
+                // Clear and rebuild time span with am/pm nested
                 timeSpan.innerHTML = ''; 
                 timeSpan.textContent = timeStr;
                 
-                // Create ampm span with NO SPACE before it
+                // Create ampm span
                 const ampmEl = document.createElement('span');
                 ampmEl.className = 'ampm-part';
                 ampmEl.id = 'currentAmPm';
-                ampmEl.textContent = ampm;  // NO SPACE - directly attached
+                ampmEl.textContent = ' ' + ampm;  // space before AM/PM
                 timeSpan.appendChild(ampmEl);
             }
 
@@ -229,12 +226,10 @@
                     timeEl.style.fontSize = (parseFloat(timeEl.style.fontSize) * heightCorrection) + 'px';
                 }
 
-                // ensure am/pm is same font size (1em relative to parent)
+                // adjust am/pm size relative to time
                 const ampmEl = document.querySelector('.ampm-part');
                 if (ampmEl) {
-                    ampmEl.style.fontSize = '1em';  // exactly same as time
-                    ampmEl.style.fontWeight = '700';
-                    ampmEl.style.fontFamily = "'Courier New', monospace";
+                    ampmEl.style.fontSize = '0.6em';
                 }
             }
 
@@ -257,13 +252,13 @@
                 const newDateText = formatPakistanDate();
                 const { timeStr, ampm } = formatPakistanTime();
                 
-                // update time with NO SPACE before AM/PM
+                // update time
                 const timeEl = document.getElementById('currentTime');
                 timeEl.innerHTML = timeStr;
                 const ampmEl = document.createElement('span');
                 ampmEl.className = 'ampm-part';
                 ampmEl.id = 'currentAmPm';
-                ampmEl.textContent = ampm;  // NO SPACE
+                ampmEl.textContent = ' ' + ampm;
                 timeEl.appendChild(ampmEl);
                 
                 // update date only if changed
